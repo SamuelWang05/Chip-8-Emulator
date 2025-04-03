@@ -17,10 +17,11 @@ include_directories(${SDL3_INCLUDE_DIR})
 link_directories(${SDL3_LIB_DIR})
 
 add_executable(Chip_8_Interpreter main.cpp
-        include/chip8.h)
+        src/chip8.h
+        src/chip8.cpp)
 
 # Include project headers
-include_directories(./include)
+include_directories(src)
 # Define the source files and dependencies for the executable
 set(SOURCE_FILES
         main.cpp
