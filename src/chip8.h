@@ -20,7 +20,7 @@ public:
     chip8() = default;
     ~chip8() = default;
 
-    void initialize(const char* filepath);
+    void initialize();
 
     bool load_rom(const char* filepath);
 
