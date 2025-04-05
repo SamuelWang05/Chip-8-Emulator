@@ -1,4 +1,6 @@
 #include "chip8.h"
+
+#include <cstdint>
 #include <cstdio>
 #include <ctime>
 #include <cstring>
@@ -148,9 +150,46 @@ void chip8::emulateCycle() {
                 break;
 
                 case 0x0004: // Add vY to vX, vF is set to 1 if an overflow happened, to 0 if not, even if X=F
-                    V[]
+                    const uint8_t vX4 = V[(opcode & 0x0F00) >> 8];
+                    const uint8_t vY4 = V[(opcode & 0x00F0) >> 4];
+                    const uint16_t sum = vX4 + vY4;
+
+                    V[0xF] = (sum & 0x0100) == 1 ? 1 : 0;
+                    V[(opcode & 0x0F00) >> 8] = sum & 0x00FF;
+
+                    pc += 2;
                 break;
 
+                case 0x0005: // Subtract vY from vX, vF is set to 0 if an underflow happened, to 1 if not, even if X=F
+                    const uint8_t vX5 = V[(opcode & 0x0F00) >> 8];
+                    const uint8_t vY5 = V[(opcode & 0x00F0) >> 4];
+                    const uint16_t diff5 = vX5 - vY5;
+
+                    V[0xF] = vX5 >= vY5 ? 0 : 1;
+                    V[(opcode & 0x0F00) >> 8] = diff5 & 0x00FF;
+
+                    pc += 2;
+                break;
+
+                case 0x0006: // Shifts VX to the right by 1, then stores the LSB of VX prior to the shift into VF
+                    V[0xF] = (V[(opcode & 0x0F00) >> 8] & 0x01);
+                    V[(opcode & 0x0F00) >> 8] >>= 1;
+                    pc += 2;
+                break;
+
+                case 0x0007: // Sets VX to VY minus VX. VF is set to 0 when there's an underflow, and 1 when there is not
+                    uint8_t vX7 = V[(opcode & 0x0F00) >> 8];
+                    uint8_t vY7 = V[(opcode & 0x00F0) >> 4];
+                    uint16_t diff7 = vY7 - vX7;
+
+                    V[(opcode & 0x0F00) >> 8] = diff7;
+                    V[0xF] = vY7 >= vX7 ? 0 : 1;
+                break;
+
+                case 0x0008: // Shifts VX to the left by 1, then sets VF to 1 if the MSB of VX prior to that shift was set, or to 0 if it was unset
+                    V[0xF] = (V[(opcode & 0x0F00) >> 8] & 0x80) != 0 ? 1 : 0; // Get MSB
+                    V[(opcode & 0x0F00) >> 8] <<= 1;
+                break;
                 default: printf("Unknown opcode: 0x%X\n", opcode);
             }
 
