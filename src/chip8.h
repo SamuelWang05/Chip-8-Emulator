@@ -52,6 +52,9 @@ private:
 
     // Keyboard (hex based)
     unsigned char key[16];
+
+    // Chip 8 does not need to draw every cycle
+    bool drawFlag;
 };
 
 #endif //CHIP8_H

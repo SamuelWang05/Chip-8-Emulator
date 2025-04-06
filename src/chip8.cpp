@@ -7,6 +7,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <bits/random.h>
 
 inline unsigned char chip8_fontset[80] =
 {
@@ -82,7 +83,6 @@ void chip8::emulateCycle() {
 
                 case 0x000E: // Returns from a subroutine
                     pc = stack[--sp];
-                    pc+=2;
                 break;
 
                 default: printf("Unknown opcode: 0x%X\n", opcode);
@@ -118,12 +118,12 @@ void chip8::emulateCycle() {
         break;
 
         case 0x6000: // Sets VX to NN
-            V[(opcode & 0x0F00) >> 8] = (opcode & 0x00FF) >> 4;
+            V[(opcode & 0x0F00) >> 8] = (opcode & 0x00FF);
             pc += 2;
         break;
 
         case 0x7000: // Add NN to vX
-            V[(opcode & 0x0F00) >> 8] += (opcode & 0x00FF) >> 4;
+            V[(opcode & 0x0F00) >> 8] += (opcode & 0x00FF);
             pc += 2;
         break;
 
@@ -195,10 +195,138 @@ void chip8::emulateCycle() {
 
         break;
 
-        case 0xA000: // ANNN: Sets I to the address NNN
+        case 0x9000: // Skips the next instruction if VX does not equal VY
+            if (V[(opcode & 0x0F00) >> 8] != V[(opcode & 0x00F0) >> 4]) {
+                pc += 4;
+            } else {
+                pc += 2;
+            }
+        break;
+
+        case 0xA000: // Sets I to the address NNN
             // Execute opcode
-                I = opcode & 0x0FFF;
-        pc += 2;
+            I = opcode & 0x0FFF;
+            pc += 2;
+        break;
+
+        case 0xB000: // Jumps to the address NNN plus V0
+            pc = V[0x0] + (opcode & 0x0FFF);
+        break;
+
+        case 0xC000: // Sets VX to the result of a bitwise and operation on a random number and NN
+            std::random_device dev;
+            std::mt19937 rng(dev());
+            std::uniform_int_distribution<std::mt19937::result_type> dist(0,255); // distribution in range (0,255)
+            V[(opcode & 0x0F00) >> 8] = dist(rng) & (opcode & 0x00FF);
+        break;
+
+        case 0xD000: // Draws a sprite at coordinate (VX, VY)
+            unsigned short x = V[(opcode & 0x0F00) >> 8];
+            unsigned short y = V[(opcode & 0x00F0) >> 4];
+            unsigned short height = opcode & 0x000F;
+            unsigned short pixel;
+
+            // VF set to 1 if any screen pixels are flipped
+            // from set to unset when sprite is drawn, 0 if not
+            V[0xF] = 0;
+            for (int yline = 0; yline < height; ++yline) {
+                pixel = memory[I + yline];
+
+                for (int xline = 0; xline < 8; ++xline) { // Width is always 8 pixels
+                    if ((pixel & (0x80 >> xline)) != 0) {
+                        if (gfx[(x + xline + ((y + yline) * 64))] == 1) V[0xF] == 1;
+                        gfx[x + xline + ((y + yline) *64)] ^= 1;
+                    }
+                }
+            }
+            drawFlag = true;
+            pc += 2;
+        break;
+
+        case 0xE000:
+            switch (opcode & 0x00FF) {
+                case 0x009E: // Skips the next instruction if the key stored in VX(only consider the lowest nibble) is pressed
+                    if(key[V[(opcode & 0x0F00) >> 8]] != 0)
+                        pc += 4;
+                    else
+                        pc += 2;
+                break;
+
+                case 0x00A1: // Skips the next instruction if the key stored in VX(only consider the lowest nibble) is not pressed
+                    if (key[V[(opcode & 0x0F00) >> 8]] == 0)
+                        pc += 4;
+                    else
+                        pc += 2;
+                break;
+
+                default: printf("Unknown opcode: 0x%X\n", opcode);
+            }
+        break;
+
+        case 0xF000:
+            switch (opcode & 0x00FF) {
+                case 0x0007: // Sets VX to the value of the delay timer
+                    V[(opcode & 0x0F00) >> 8] = delay_timer;
+                break;
+
+                case 0x000A: // A key press is awaited, and then stored in VX
+                    bool key_press = false;
+
+                    for (uint8_t i = 0; i < 16; ++i) {
+                        if (key[i]) {
+                            V[(opcode & 0x0F00) >> 8] = i;
+                            key_press = true;
+
+                            break;
+                        }
+                    }
+
+                    if (key_press) pc += 2;
+                break;
+
+                case 0x0015: // Sets the delay timer to VX
+                    delay_timer = V[(opcode & 0x0F00) >> 8];
+                    pc += 2;
+                break;
+
+                case 0x0018: // Sets the sound timer to VX
+                    sound_timer = V[(opcode & 0x0F00) >> 8];
+                    pc += 2;
+                break;
+
+                case 0x001E: // Adds VX to I. VF is not affected
+                    I += V[(opcode & 0x0F00) >> 8];
+                    pc += 2;
+                break;
+
+                case 0x0029: // Sets I to the location of the sprite for the character in VX(only consider the lowest nibble)
+                    I = (V[(opcode & 0x0F00) >> 8] & 0x0F) * 5; // Each sprite 5 bytes wide
+                    pc += 2;
+                break;
+
+                case 0x0033: // Stores the binary-coded decimal representation of VX
+                    memory[I]     = V[(opcode & 0x0F00) >> 8] / 100;
+                    memory[I + 1] = (V[(opcode & 0x0F00) >> 8] / 10) % 10;
+                    memory[I + 2] = (V[(opcode & 0x0F00) >> 8] % 100) % 10;
+                    pc += 2;
+                break;
+
+                case 0x0055: // Stores from V0 to VX (including VX) in memory, starting at address I
+                    for (int i = 0; i <= (opcode & 0x0F00) >> 8; ++i) {
+                        memory[I + i] = V[i];
+                    }
+                    pc += 2;
+                break;
+
+                case 0x0065: // Fills from V0 to VX (including VX) with values from memory, starting at address I
+                    for (int i = 0; i <= (opcode & 0x0F00) >> 8; ++i) {
+                        V[i] = memory[I + i];
+                    }
+                    pc += 2;
+                break;
+
+                default: printf("Unknown opcode: 0x%X\n", opcode);
+            }
         break;
 
         default: printf("Unknown opcode: 0x%X\n", opcode);
