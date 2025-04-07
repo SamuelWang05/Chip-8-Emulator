@@ -26,6 +26,15 @@ public:
 
     void emulateCycle();
 
+    // Graphics
+    unsigned char gfx[64 * 32];     // Graphics written on a 64 x 32 pixel screen. Only black/white colors supported
+
+    // Keyboard (hex based)
+    unsigned char key[16];
+
+    // Chip 8 does not need to draw every cycle
+    bool drawFlag;
+
 private:
     unsigned short opcode;          // Op codes are 2 bytes long
     unsigned char memory[4096];     // 4k memory total
@@ -39,9 +48,6 @@ private:
      * 0x200-0xFFF - Program ROM and work RAM
      */
 
-    // Graphics
-    unsigned char gfx[64 * 32];     // Graphics written on a 64 x 32 pixel screen. Only black/white colors supported
-
     // Two timer registers, count @ 60 Hz. Set > 0 --> will count down to 0
     unsigned char delay_timer;
     unsigned char sound_timer;      // Will sound whenever timer reaches 0
@@ -49,12 +55,6 @@ private:
     // Stack - remember current location before a jump is performed by PC
     unsigned short stack[16];
     unsigned short sp;              // Stack pointer
-
-    // Keyboard (hex based)
-    unsigned char key[16];
-
-    // Chip 8 does not need to draw every cycle
-    bool drawFlag;
 };
 
 #endif //CHIP8_H

@@ -5,20 +5,21 @@ project(Chip_8_Interpreter)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -Wextra -pedantic -pedantic-errors -g")
+add_compile_options(-Wall -Wextra -pedantic -pedantic-errors -g)
 
-# SDL3 include and lib paths (based on x86_64-w64-mingw32 layout)
-set(SDL3_ROOT C:/libs/SDL3/x86_64-w64-mingw32)
-set(SDL3_INCLUDE_DIR ${SDL3_ROOT}/include)
-set(SDL3_LIB_DIR ${SDL3_ROOT}/lib)
+# SDL2 include and lib paths (adjust these to match your system if needed)
+set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake_modules)
 
-add_executable(Chip_8_Interpreter main.cpp
+set(SDL2_PATH "C:/libs/SDL2/x86_64-w64-mingw32")
+
+find_package(SDL2 REQUIRED)
+include_directories(${SDL2_INCLUDE_DIR})
+
+# Add source files
+add_executable(Chip_8_Interpreter
+        main.cpp
         src/chip8.cpp
-        src/chip8.h)
+        src/chip8.h
+)
 
-target_include_directories(Chip_8_Interpreter PRIVATE ${SDL3_INCLUDE_DIR})
-target_link_directories(Chip_8_Interpreter PRIVATE ${SDL3_LIB_DIR})
-target_link_libraries(Chip_8_Interpreter PRIVATE SDL3)
-
-# Output binary to bin/
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+target_link_libraries(${PROJECT_NAME} ${SDL2_LIBRARY})
